@@ -4,6 +4,10 @@ import win32con
 from datetime import datetime
 from PIL import Image, ImageDraw
 import mss
+import pyautogui
+import pytesseract
+from pywinauto.uia_element_info import UIAElementInfo
+from pywinauto.uia_defines import IUIA
 
 
 class ScreenshootLogic:
@@ -21,6 +25,56 @@ class ScreenshootLogic:
         tRect = win32gui.GetWindowRect(target)
         return tRect, iPoint
 
+        
+    
+    def getSimplifiedWindowInfo(self, bCaptureFullWindow: bool) -> dict:
+        iPoint = win32gui.GetCursorPos()
+        iHandle = win32gui.WindowFromPoint(iPoint)
+        hRoot = win32gui.GetAncestor(iHandle, win32con.GA_ROOT)
+
+        if not win32gui.IsWindowVisible(hRoot):
+            hRoot = win32gui.GetForegroundWindow()
+
+        target = hRoot if bCaptureFullWindow else iHandle
+
+        screenshot = pyautogui.screenshot()
+        x, y = iPoint
+        region = screenshot.crop((x - 150, y - 75, x + 150, y + 75))
+        sRecognizedText = pytesseract.image_to_string(region)
+
+        print("🔍 OCR extracted text near cursor:")
+        print(sRecognizedText.strip())
+
+        try:
+            x, y = win32gui.GetCursorPos()
+            element = UIAElementInfo.from_point(x, y)
+
+            print("📋 UI Element Info:")
+            print(f"Name: {element.name}")
+            print(f"Control Type: {element.control_type}")
+            print(f"Class Name: {element.class_name}")
+            print(f"Automation ID: {element.automation_id}")
+
+            return {
+                "title": win32gui.GetWindowText(target),
+                "className": win32gui.GetClassName(target),
+                "ocrText": sRecognizedText.strip(),
+                "elementName": element.name,
+                "elementControlType": element.control_type,
+                "elementClassName": element.class_name,
+                "elementAutomationId": element.automation_id
+            }
+
+        except Exception as e:
+            print(f"⚠️ pywinauto failed: {e}")
+            return {
+                "title": win32gui.GetWindowText(target),
+                "className": win32gui.GetClassName(target),
+                "ocrText": sRecognizedText.strip(),
+                "elementError": str(e)
+            }
+        
+        
     def saveScreenshotWithMarker(self, tRect, iX, iY, sPrefix):
         tRelClick = self._getRelativeClickPosition(tRect, iX, iY)
         iImage = self._captureWindowImage(tRect)

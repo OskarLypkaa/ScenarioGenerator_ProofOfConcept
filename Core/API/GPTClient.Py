@@ -1,7 +1,8 @@
 from openai import OpenAI
+from Utils.Config import API_KEY 
 
 client = OpenAI(
-  api_key=""
+  api_key = API_KEY
 )
 
 completion = client.chat.completions.create(

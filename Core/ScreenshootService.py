@@ -1,27 +1,62 @@
 from pynput import mouse, keyboard
 import threading
-import Utils.config
+import Utils.Config
 from Core.ScreenshootLogic import ScreenshootLogic
-
+from Core.ScenarioRecorder import ScenarioRecorder
+from datetime import datetime
+from threading import Timer
 
 class ScreenshotService:
-    def __init__(self, sSaveDir=Utils.config.SCREENSHOOTS_DIR):
+    def __init__(self, sSaveDir=Utils.Config.SCREENSHOOTS_DIR):
         self.logic = ScreenshootLogic(sSaveDir)
         self.bCaptureFullWindow = False
         self.bBlockClickScreens = True
         self.mMouseListener = None
         self.mKeyboardListener = None
         self.pressedKeys = set()
+        self.recorder = ScenarioRecorder()
+
+        # Typing tracking
+        self.sTypedBuffer = ""
+        self.lastKeyTime = None
+        self.typingTimer = None
+        self.typingDelay = 2.0  # seconds
 
     def _onClick(self, iX, iY, bButton, bPressed):
         if not bPressed:
             return
+
         tRect, _ = self.logic.getWindowUnderMouse(self.bCaptureFullWindow)
+
         if bButton.name == "left" and self.bBlockClickScreens:
-            self.logic.saveScreenshotWithMarker(tRect, iX, iY, "Before")
+            sPath = self.logic.saveScreenshotWithMarker(tRect, iX, iY, "Before")
+
+            dInfo = self.logic.getSimplifiedWindowInfo(self.bCaptureFullWindow)
+            dInfo["type of action"] = "Click"
+
+            self.recorder.addStep(
+                dActionInfoBefore=dInfo,
+                sTakenActionPic=sPath
+            )
 
     def _onKeyPress(self, key):
         self.pressedKeys.add(key)
+
+        if hasattr(key, 'char') and key.char is not None:
+            self.sTypedBuffer += key.char
+            self._resetTypingTimer()
+
+        elif key == keyboard.Key.space:
+            self.sTypedBuffer += ' '
+            self._resetTypingTimer()
+
+        elif key == keyboard.Key.backspace:
+            self.sTypedBuffer = self.sTypedBuffer[:-1]
+            self._resetTypingTimer()
+
+        elif key == keyboard.Key.enter:
+            self.sTypedBuffer += '\n'
+            self._finalizeTypingAction()
 
     def _onKeyRelease(self, key):
         if key == keyboard.Key.f11:
@@ -46,13 +81,63 @@ class ScreenshotService:
                     daemon=True
                 ).start()
 
-        # Usuń puszczony klawisz z zestawu
         if key in self.pressedKeys:
             self.pressedKeys.remove(key)
 
+    def _resetTypingTimer(self):
+        self.lastKeyTime = datetime.now()
+
+        if self.typingTimer:
+            self.typingTimer.cancel()
+
+        self.typingTimer = Timer(self.typingDelay, self._finalizeTypingAction)
+        self.typingTimer.start()
+
+    def _finalizeTypingAction(self):
+        sText = self.sTypedBuffer.strip()
+        if not sText:
+            return
+
+        tRect, (iMouseX, iMouseY) = self.logic.getWindowUnderMouse(self.bCaptureFullWindow)
+        sPath = self.logic.saveScreenshotWithMarker(tRect, iMouseX, iMouseY, "Typed")
+
+        dInfo = self.logic.getSimplifiedWindowInfo(self.bCaptureFullWindow)
+        dInfo["type of action"] = f"Typing: {sText}"
+
+        self.recorder.addStep(
+            dActionInfoBefore=dInfo,
+            sTakenAction=sText,
+            sTakenActionPic=sPath
+        )
+
+        print(f"[✔] Typing action saved: {sText}")
+
+        self.sTypedBuffer = ""
+        self.typingTimer = None
+
     def _triggerCapture(self, prefix):
         tRect, (iMouseX, iMouseY) = self.logic.getWindowUnderMouse(self.bCaptureFullWindow)
-        self.logic.saveScreenshotWithMarker(tRect, iMouseX, iMouseY, prefix)
+        sPath = self.logic.saveScreenshotWithMarker(tRect, iMouseX, iMouseY, prefix)
+
+        if prefix == "Before":
+            dInfo = self.logic.getSimplifiedWindowInfo(self.bCaptureFullWindow)
+            dInfo["type of action"] = "Click"
+            self.recorder.addStep(
+                dActionInfoBefore=dInfo,
+                sTakenActionPic=sPath
+            )
+
+        elif prefix == "After":
+            dInfo = self.logic.getSimplifiedWindowInfo(self.bCaptureFullWindow)
+            dInfo["type of action"] = "Screenshoot"
+
+            lastStep = len(self.recorder.getSteps())
+            if lastStep > 0:
+                self.recorder.updateStep(
+                    iStepNumber=lastStep,
+                    sExpectedResultPic=sPath,
+                    dActionInfoAfter=dInfo
+                )
 
     def startListener(self):
         print("▶ Listening for mouse and hotkeys...")
