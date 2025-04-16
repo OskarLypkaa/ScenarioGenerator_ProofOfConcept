@@ -43,26 +43,24 @@ class ScenarioManager:
 
     def exportToExcel(self, sFileName: str, sExcelName: str = None):
         sJsonPath = os.path.join(Utils.Config.SCENARIO_DIR, sFileName)
-        sTemplatePath = Utils.Config.TEMPLATE_PATH
-
         if not os.path.exists(sJsonPath):
             print(f"❌ Scenario file does not exist: {sJsonPath}")
             return
 
-        if not os.path.exists(sTemplatePath):
-            print(f"❌ Excel template file does not exist: {sTemplatePath}")
-            return
+        if sExcelName is None:
+            sExcelName = os.path.splitext(sFileName)[0] + ".xlsm"
 
-        os.makedirs(Utils.Config.EXCEL_DIR, exist_ok=True)
+        sExcelPath = os.path.join(Utils.Config.EXPORT_DIR, sExcelName)
+        sTemplatePath = Utils.Config.EXCEL_TEMPLATE_PATH  # zakładamy że masz to w configu
 
-        sExcelOutputPath = os.path.join(
-            Utils.Config.EXCEL_DIR,
-            sExcelName if sExcelName else sFileName.replace(".json", ".xlsx")
-        )
+        try:
+            gen = ExcelGenerator(
+                jsonPath=sJsonPath,
+                templatePath=sTemplatePath,
+                outputPath=sExcelPath
+            )
+            gen.generate()
+            print(f"✅ Excel exported to: {sExcelPath}")
+        except Exception as e:
+            print(f"❌ Excel export failed: {e}")
 
-        generator = ExcelGenerator(
-            jsonPath=sJsonPath,
-            templatePath=sTemplatePath,
-            outputPath=sExcelOutputPath
-        )
-        generator.generate()

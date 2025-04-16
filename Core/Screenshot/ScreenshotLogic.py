@@ -4,11 +4,7 @@ import win32con
 from datetime import datetime
 from PIL import Image, ImageDraw
 import mss
-import pyautogui
-import pytesseract
 from pywinauto.uia_element_info import UIAElementInfo
-from pywinauto.uia_defines import IUIA
-
 
 class ScreenshotLogic:
     def __init__(self, sSaveDir):
@@ -25,8 +21,6 @@ class ScreenshotLogic:
         tRect = win32gui.GetWindowRect(target)
         return tRect, iPoint
 
-        
-    
     def getSimplifiedWindowInfo(self, bCaptureFullWindow: bool) -> dict:
         iPoint = win32gui.GetCursorPos()
         iHandle = win32gui.WindowFromPoint(iPoint)
@@ -36,14 +30,6 @@ class ScreenshotLogic:
             hRoot = win32gui.GetForegroundWindow()
 
         target = hRoot if bCaptureFullWindow else iHandle
-
-        screenshot = pyautogui.screenshot()
-        x, y = iPoint
-        region = screenshot.crop((x - 150, y - 75, x + 150, y + 75))
-        sRecognizedText = pytesseract.image_to_string(region)
-
-        print("🔍 OCR extracted text near cursor:")
-        print(sRecognizedText.strip())
 
         try:
             x, y = win32gui.GetCursorPos()
@@ -58,7 +44,6 @@ class ScreenshotLogic:
             return {
                 "title": win32gui.GetWindowText(target),
                 "className": win32gui.GetClassName(target),
-                "ocrText": sRecognizedText.strip(),
                 "elementName": element.name,
                 "elementControlType": element.control_type,
                 "elementClassName": element.class_name,
@@ -70,11 +55,9 @@ class ScreenshotLogic:
             return {
                 "title": win32gui.GetWindowText(target),
                 "className": win32gui.GetClassName(target),
-                "ocrText": sRecognizedText.strip(),
                 "elementError": str(e)
             }
-        
-        
+
     def saveScreenshotWithMarker(self, tRect, iX, iY, sPrefix):
         tRelClick = self._getRelativeClickPosition(tRect, iX, iY)
         iImage = self._captureWindowImage(tRect)

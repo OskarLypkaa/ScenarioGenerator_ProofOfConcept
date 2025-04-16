@@ -4,7 +4,8 @@ class DescriptionService:
     def __init__(self, recorder: ScenarioRecorder):
         self.recorder = recorder
         self.dClassNameMap = {
-            "AfxFrameOrView140u": "drawingArea"
+            "AfxFrameOrView140u": "drawingArea",
+            "SysTreeView32": "TreeView Panel"
         }
 
     def generateDescriptions(self):
@@ -14,7 +15,7 @@ class DescriptionService:
             iStepNumber = step["Step Number"]
             takenAction = self._describeTakenAction(step)
             expectedResult = self._describeExpectedResult(step)
-            
+
             self.recorder.updateStep(
                 iStepNumber=iStepNumber,
                 sTakenAction=takenAction,
@@ -51,7 +52,7 @@ class DescriptionService:
     def _describeExpectedResult(self, dStep: dict) -> str:
         dAfter = dStep.get("Action Info After", {})
         if not dAfter:
-            return ""
+            return self._fallbackExpectedResult(dStep)
 
         sClass = self._getClassName(dAfter.get("elementClassName", ""))
         sElement = dAfter.get("elementName") or ""
@@ -70,3 +71,15 @@ class DescriptionService:
             parts.append(f"visible text: \"{sShort}\"")
 
         return " and ".join(parts).strip()
+
+    def _fallbackExpectedResult(self, dStep: dict) -> str:
+        """Generate a generic expected result if no Action Info After is provided."""
+        sAction = self._describeTakenAction(dStep)
+
+        if "Insert value" in sAction:
+            return "Value appears inside the field."
+
+        if "Click" in sAction:
+            return "Expected reaction of the clicked element."
+
+        return "Expected result after the action is completed."

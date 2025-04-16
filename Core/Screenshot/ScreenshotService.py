@@ -75,7 +75,7 @@ class ScreenshotService:
                     args=("Before",),
                     daemon=True
                 ).start()
-            elif keyboard.Key.alt_l in self.pressedKeys or keyboard.Key.alt_r in self.pressedKeys:
+            elif keyboard.Key.cmd in self.pressedKeys:
                 if self.bBeforeCaptured:  
                     threading.Thread(
                         target=self._triggerCapture,
