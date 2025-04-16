@@ -10,7 +10,7 @@ from pywinauto.uia_element_info import UIAElementInfo
 from pywinauto.uia_defines import IUIA
 
 
-class ScreenshootLogic:
+class ScreenshotLogic:
     def __init__(self, sSaveDir):
         self.sSaveDir = sSaveDir
         os.makedirs(self.sSaveDir, exist_ok=True)

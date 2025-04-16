@@ -1,21 +1,16 @@
 import json
 import os
 from typing import Optional
-import Utils.Config
 
 class ScenarioRecorder:
-   def __init__(self):
-      self.sPath = self._generateNextScenarioPath(Utils.Config.SCENARIO_DIR)
-      self.aSteps = []
-      self._save()
-
-   def _generateNextScenarioPath(self, sBaseDir: str) -> str:
-      os.makedirs(sBaseDir, exist_ok=True)
-      existing = [f for f in os.listdir(sBaseDir) if f.startswith("scenario_") and f.endswith(".json")]
-      numbers = [int(f[9:12]) for f in existing if f[9:12].isdigit()]
-      nextNumber = max(numbers, default=0) + 1
-      fileName = f"scenario_{nextNumber:03}.json"
-      return os.path.join(sBaseDir, fileName)
+   def __init__(self, sPath: Optional[str] = None):
+      self.aSteps = []  # <- WAŻNE: musi być przed load/save
+      if sPath:
+         self.sPath = sPath
+         if os.path.exists(sPath):
+            self._load()
+         else:
+            self._save()
 
    def _load(self):
       with open(self.sPath, "r", encoding="utf-8") as f:

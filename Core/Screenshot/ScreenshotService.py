@@ -1,20 +1,21 @@
 from pynput import mouse, keyboard
 import threading
 import Utils.Config
-from Core.ScreenshootLogic import ScreenshootLogic
+from Core.Screenshot.ScreenshotLogic import ScreenshotLogic
 from Core.ScenarioRecorder import ScenarioRecorder
 from datetime import datetime
 from threading import Timer
 
 class ScreenshotService:
-    def __init__(self, sSaveDir=Utils.Config.SCREENSHOOTS_DIR):
-        self.logic = ScreenshootLogic(sSaveDir)
+    def __init__(self, sSaveDir=Utils.Config.SCREENSHOTS_DIR):
+        self.logic = ScreenshotLogic(sSaveDir)
         self.bCaptureFullWindow = False
         self.bBlockClickScreens = True
         self.mMouseListener = None
         self.mKeyboardListener = None
         self.pressedKeys = set()
         self.recorder = ScenarioRecorder()
+        self.bBeforeCaptured = False  
 
         # Typing tracking
         self.sTypedBuffer = ""
@@ -75,11 +76,14 @@ class ScreenshotService:
                     daemon=True
                 ).start()
             elif keyboard.Key.alt_l in self.pressedKeys or keyboard.Key.alt_r in self.pressedKeys:
-                threading.Thread(
-                    target=self._triggerCapture,
-                    args=("After",),
-                    daemon=True
-                ).start()
+                if self.bBeforeCaptured:  
+                    threading.Thread(
+                        target=self._triggerCapture,
+                        args=("After",),
+                        daemon=True
+                    ).start()
+                else:
+                    print("[⚠] Cannot capture 'After' without a prior 'Before'.")
 
         if key in self.pressedKeys:
             self.pressedKeys.remove(key)
@@ -126,10 +130,11 @@ class ScreenshotService:
                 dActionInfoBefore=dInfo,
                 sTakenActionPic=sPath
             )
+            self.bBeforeCaptured = True  
 
         elif prefix == "After":
             dInfo = self.logic.getSimplifiedWindowInfo(self.bCaptureFullWindow)
-            dInfo["type of action"] = "Screenshoot"
+            dInfo["type of action"] = "Screenshot"
 
             lastStep = len(self.recorder.getSteps())
             if lastStep > 0:
@@ -138,6 +143,7 @@ class ScreenshotService:
                     sExpectedResultPic=sPath,
                     dActionInfoAfter=dInfo
                 )
+            self.bBeforeCaptured = False 
 
     def startListener(self):
         print("▶ Listening for mouse and hotkeys...")
