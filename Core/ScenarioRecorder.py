@@ -4,7 +4,7 @@ from typing import Optional
 
 class ScenarioRecorder:
    def __init__(self, sPath: Optional[str] = None):
-      self.aSteps = []  # <- WAŻNE: musi być przed load/save
+      self.aSteps = [] 
       if sPath:
          self.sPath = sPath
          if os.path.exists(sPath):

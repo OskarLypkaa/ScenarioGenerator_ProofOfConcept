@@ -15,9 +15,13 @@ def main():
     mManager.stopRecordingScenario()
     print("⏹ Recording stopped.")
 
-    bGenerate = input("🔍 Generate descriptions now? (y/n): ").strip().lower()
+    bGenerate = input("🔍 Generate basic descriptions now? (y/n): ").strip().lower()
     if bGenerate == "y":
         mManager.updateDecriptions(sFileName)
+
+    bAIEnhance = input("🤖 Enhance descriptions with AI? (y/n): ").strip().lower()
+    if bAIEnhance == "y":
+        mManager.enhanceDescriptionsWithAI(sFileName)
 
     bExport = input("📤 Export to Excel (.xlsm)? (y/n): ").strip().lower()
     if bExport == "y":
@@ -36,7 +40,9 @@ if __name__ == "__main__":
     - Use those AI models to generate action descriptions.
     - Improve click pointer on images (make it semi-transparent so it doesn't block the view).
     - Add gitignore.
-
+    - Make API calls less expensive by correcting the question in prompt and by resizing the images
+    - Try to correct Model so the results are smaller and more precised
+    
 🟡 NOT IMPORTANT NOW
 ---------------------
     - Redesign code structure for readability and maintainability (apply clean code principles and read about design patterns, maybe add packages and modules).

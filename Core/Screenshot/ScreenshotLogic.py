@@ -84,12 +84,17 @@ class ScreenshotLogic:
         iX, iY = tRelClick
         d = ImageDraw.Draw(iImage)
         iRadius = 20
+        markerColor = "red"
+
         d.ellipse(
             [(iX - iRadius, iY - iRadius), (iX + iRadius, iY + iRadius)],
-            outline="red", width=5
+            outline=markerColor, width=3
         )
-        d.line([(iX - 10, iY), (iX + 10, iY)], fill="red", width=3)
-        d.line([(iX, iY - 10), (iX, iY + 10)], fill="red", width=3)
+
+        crossLen = 6
+        d.line([(iX - crossLen, iY), (iX + crossLen, iY)], fill=markerColor, width=2)
+        d.line([(iX, iY - crossLen), (iX, iY + crossLen)], fill=markerColor, width=2)
+
 
     def _buildScreenshotPath(self, sPrefix):
         sTimestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
