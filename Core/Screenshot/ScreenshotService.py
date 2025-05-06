@@ -1,163 +1,92 @@
-from pynput import mouse, keyboard
+import ctypes
+import ctypes.wintypes
 import threading
-import Utils.Config
+import time
 from Core.Screenshot.ScreenshotLogic import ScreenshotLogic
 from Core.ScenarioRecorder import ScenarioRecorder
-from datetime import datetime
-from threading import Timer
+import Utils.Config
+
+user32 = ctypes.windll.user32
+
+WH_MOUSE_LL = 14
+WM_LBUTTONDOWN = 0x0201
+
+class MSLLHOOKSTRUCT(ctypes.Structure):
+    _fields_ = [
+        ("pt", ctypes.wintypes.POINT),
+        ("mouseData", ctypes.wintypes.DWORD),
+        ("flags", ctypes.wintypes.DWORD),
+        ("time", ctypes.wintypes.DWORD),
+        ("dwExtraInfo", ctypes.c_ulonglong),
+    ]
 
 class ScreenshotService:
     def __init__(self, sSaveDir=Utils.Config.SCREENSHOTS_DIR):
         self.logic = ScreenshotLogic(sSaveDir)
-        self.bCaptureFullWindow = False
-        self.bBlockClickScreens = True
-        self.mMouseListener = None
-        self.mKeyboardListener = None
-        self.pressedKeys = set()
         self.recorder = ScenarioRecorder()
-        self.bBeforeCaptured = False  
+        self.bCaptureFullWindow = False
+        self.hookThread = None
+        self.hookId = None
+        self.mouseProcPtr = None
 
-        # Typing tracking
-        self.sTypedBuffer = ""
-        self.lastKeyTime = None
-        self.typingTimer = None
-        self.typingDelay = 2.0  # seconds
+    def _lowLevelMouseProc(self, nCode, wParam, lParam):
+        if nCode == 0 and wParam == WM_LBUTTONDOWN:
+            mouseStruct = ctypes.cast(lParam, ctypes.POINTER(MSLLHOOKSTRUCT)).contents
+            iMouseX = mouseStruct.pt.x
+            iMouseY = mouseStruct.pt.y
 
-    def _onClick(self, iX, iY, bButton, bPressed):
-        if not bPressed:
-            return
+            # --- BEFORE ---
+            tRect, _ = self.logic.getWindowUnderMouse(self.bCaptureFullWindow)
+            sBefore = self.logic.saveScreenshotWithMarker(tRect, iMouseX, iMouseY, "Before")
+            dInfoBefore = self.logic.getSimplifiedWindowInfo(self.bCaptureFullWindow)
+            dInfoBefore["type of action"] = "Click"
 
-        tRect, _ = self.logic.getWindowUnderMouse(self.bCaptureFullWindow)
+            # Pozwól systemowi przetworzyć kliknięcie
+            time.sleep(0.3)  # Możesz dostosować to opóźnienie
 
-        if bButton.name == "left" and self.bBlockClickScreens:
-            sPath = self.logic.saveScreenshotWithMarker(tRect, iX, iY, "Before")
+            # --- AFTER ---
+            tRect, _ = self.logic.getWindowUnderMouse(self.bCaptureFullWindow)
+            sAfter = self.logic.saveScreenshotWithMarker(tRect, iMouseX, iMouseY, "After")
+            dInfoAfter = self.logic.getSimplifiedWindowInfo(self.bCaptureFullWindow)
+            dInfoAfter["type of action"] = "Screenshot after click"
 
-            dInfo = self.logic.getSimplifiedWindowInfo(self.bCaptureFullWindow)
-            dInfo["type of action"] = "Click"
-
+            # Zapisz krok
             self.recorder.addStep(
-                dActionInfoBefore=dInfo,
-                sTakenActionPic=sPath
+                dActionInfoBefore=dInfoBefore,
+                sTakenActionPic=sBefore,
+                sExpectedResultPic=sAfter,
+                dActionInfoAfter=dInfoAfter
             )
 
-    def _onKeyPress(self, key):
-        self.pressedKeys.add(key)
+            print(f"[✔] Captured BEFORE and AFTER for click at ({iMouseX}, {iMouseY})")
 
-        if hasattr(key, 'char') and key.char is not None:
-            self.sTypedBuffer += key.char
-            self._resetTypingTimer()
-
-        elif key == keyboard.Key.space:
-            self.sTypedBuffer += ' '
-            self._resetTypingTimer()
-
-        elif key == keyboard.Key.backspace:
-            self.sTypedBuffer = self.sTypedBuffer[:-1]
-            self._resetTypingTimer()
-
-        elif key == keyboard.Key.enter:
-            self.sTypedBuffer += '\n'
-            self._finalizeTypingAction()
-
-    def _onKeyRelease(self, key):
-        if key == keyboard.Key.f11:
-            self.bCaptureFullWindow = not self.bCaptureFullWindow
-            print(f"🪟 Full window capture mode: {'ON' if self.bCaptureFullWindow else 'OFF'}")
-
-        elif key == keyboard.Key.f12:
-            self.bBlockClickScreens = not self.bBlockClickScreens
-            print(f"🚑 Left-click screenshots mode: {'ON' if self.bBlockClickScreens else 'OFF'}")
-
-        elif keyboard.Key.ctrl_l in self.pressedKeys or keyboard.Key.ctrl_r in self.pressedKeys:
-            if keyboard.Key.shift in self.pressedKeys:
-                threading.Thread(
-                    target=self._triggerCapture,
-                    args=("Before",),
-                    daemon=True
-                ).start()
-            elif keyboard.Key.cmd in self.pressedKeys:
-                if self.bBeforeCaptured:  
-                    threading.Thread(
-                        target=self._triggerCapture,
-                        args=("After",),
-                        daemon=True
-                    ).start()
-                else:
-                    print("[⚠] Cannot capture 'After' without a prior 'Before'.")
-
-        if key in self.pressedKeys:
-            self.pressedKeys.remove(key)
-
-    def _resetTypingTimer(self):
-        self.lastKeyTime = datetime.now()
-
-        if self.typingTimer:
-            self.typingTimer.cancel()
-
-        self.typingTimer = Timer(self.typingDelay, self._finalizeTypingAction)
-        self.typingTimer.start()
-
-    def _finalizeTypingAction(self):
-        sText = self.sTypedBuffer.strip()
-        if not sText:
-            return
-
-        tRect, (iMouseX, iMouseY) = self.logic.getWindowUnderMouse(self.bCaptureFullWindow)
-        sPath = self.logic.saveScreenshotWithMarker(tRect, iMouseX, iMouseY, "Typed")
-
-        dInfo = self.logic.getSimplifiedWindowInfo(self.bCaptureFullWindow)
-        dInfo["type of action"] = f"Typing: {sText}"
-
-        self.recorder.addStep(
-            dActionInfoBefore=dInfo,
-            sTakenAction=sText,
-            sTakenActionPic=sPath
+        return user32.CallNextHookEx(
+            None,
+            ctypes.c_int(nCode),
+            ctypes.wintypes.WPARAM(wParam),
+            ctypes.wintypes.LPARAM(lParam)
         )
 
-        print(f"[✔] Typing action saved: {sText}")
+    def _installHook(self):
+        CMPFUNC = ctypes.WINFUNCTYPE(
+            ctypes.c_int, ctypes.c_int, ctypes.wintypes.WPARAM, ctypes.wintypes.LPARAM
+        )
+        self.mouseProcPtr = CMPFUNC(self._lowLevelMouseProc)
+        self.hookId = user32.SetWindowsHookExW(WH_MOUSE_LL, self.mouseProcPtr, 0, 0)
 
-        self.sTypedBuffer = ""
-        self.typingTimer = None
+        if not self.hookId:
+            raise Exception("❌ Failed to install mouse hook.")
 
-    def _triggerCapture(self, prefix):
-        tRect, (iMouseX, iMouseY) = self.logic.getWindowUnderMouse(self.bCaptureFullWindow)
-        sPath = self.logic.saveScreenshotWithMarker(tRect, iMouseX, iMouseY, prefix)
-
-        if prefix == "Before":
-            dInfo = self.logic.getSimplifiedWindowInfo(self.bCaptureFullWindow)
-            dInfo["type of action"] = "Click"
-            self.recorder.addStep(
-                dActionInfoBefore=dInfo,
-                sTakenActionPic=sPath
-            )
-            self.bBeforeCaptured = True  
-
-        elif prefix == "After":
-            dInfo = self.logic.getSimplifiedWindowInfo(self.bCaptureFullWindow)
-            dInfo["type of action"] = "Screenshot"
-
-            lastStep = len(self.recorder.getSteps())
-            if lastStep > 0:
-                self.recorder.updateStep(
-                    iStepNumber=lastStep,
-                    sExpectedResultPic=sPath,
-                    dActionInfoAfter=dInfo
-                )
-            self.bBeforeCaptured = False 
+        msg = ctypes.wintypes.MSG()
+        while True:
+            user32.GetMessageW(ctypes.byref(msg), 0, 0, 0)
 
     def startListener(self):
-        print("▶ Listening for mouse and hotkeys...")
-        self.mMouseListener = mouse.Listener(on_click=self._onClick)
-        self.mMouseListener.start()
-        self.mKeyboardListener = keyboard.Listener(
-            on_press=self._onKeyPress,
-            on_release=self._onKeyRelease
-        )
-        self.mKeyboardListener.start()
+        print("▶ Listening for mouse clicks (Windows Hook)...")
+        self.hookThread = threading.Thread(target=self._installHook, daemon=True)
+        self.hookThread.start()
 
     def stopListener(self):
-        if self.mMouseListener:
-            self.mMouseListener.stop()
-        if self.mKeyboardListener:
-            self.mKeyboardListener.stop()
-        print("⏹ Listeners stopped.")
+        if self.hookId:
+            user32.UnhookWindowsHookEx(self.hookId)
+            print("⏹ Mouse hook removed.")
