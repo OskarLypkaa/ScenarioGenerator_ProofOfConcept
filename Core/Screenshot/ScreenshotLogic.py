@@ -5,11 +5,61 @@ from datetime import datetime
 from PIL import Image, ImageDraw
 import mss
 from pywinauto.uia_element_info import UIAElementInfo
+import psutil
+import win32gui
+import win32process
 
 class ScreenshotLogic:
     def __init__(self, sSaveDir):
         self.sSaveDir = sSaveDir
         os.makedirs(self.sSaveDir, exist_ok=True)
+
+    def get_process_pid(self, process_name):
+        for proc in psutil.process_iter(['pid', 'name']):
+            if proc.info['name'].lower() == process_name.lower():
+                return proc.info['pid']
+        return None
+
+    def find_popup_windows_of_process(self, process_name):
+        popups = []
+        pid = self.get_process_pid(process_name)
+        if pid is None:
+            print(f"Process '{process_name}' not found")
+            return []
+        
+        def enumHandler(hwnd, lParam):
+            try:
+                _, win_pid = win32process.GetWindowThreadProcessId(hwnd)
+                className = win32gui.GetClassName(hwnd)
+                if win_pid == pid and className == "#32768":
+                    popups.append(hwnd)
+            except Exception:
+                pass  # Niektóre okna mogą być niedostępne
+        win32gui.EnumWindows(enumHandler, None)
+        return popups
+    
+    def saveWindowScreenshot(self, hwnd, sPrefix="Popup"):
+        # Pobierz pozycję i rozmiar okna
+        try:
+            tRect = win32gui.GetWindowRect(hwnd)
+            iLeft, iTop, iRight, iBottom = tRect
+            width = iRight - iLeft
+            height = iBottom - iTop
+            if width <= 0 or height <= 0:
+                print(f"⚠️ Okno o hwnd={hwnd} ma nieprawidłowe wymiary.")
+                return None
+
+            with mss.mss() as sct:
+                monitor = {"left": iLeft, "top": iTop, "width": width, "height": height}
+                sct_img = sct.grab(monitor)
+                iImage = Image.frombytes("RGB", sct_img.size, sct_img.rgb)
+                sPath = self._buildScreenshotPath(sPrefix)
+                iImage.save(sPath)
+                print(f"[✔] Zrzut popup-menu zapisany: {sPath}")
+                return sPath
+        except Exception as e:
+            print(f"❌ Błąd podczas zapisu zrzutu popup: {e}")
+            return None
 
     def getWindowUnderMouse(self, bCaptureFullWindow):
         iPoint = win32gui.GetCursorPos()
@@ -31,16 +81,21 @@ class ScreenshotLogic:
 
         target = hRoot if bCaptureFullWindow else iHandle
 
+        
+
         try:
+            if not win32gui.IsWindow(target):
+                raise Exception("Invalid window handle")
+
             x, y = win32gui.GetCursorPos()
             element = UIAElementInfo.from_point(x, y)
-
-            print("📋 UI Element Info:")
-            print(f"Name: {element.name}")
-            print(f"Control Type: {element.control_type}")
-            print(f"Class Name: {element.class_name}")
-            print(f"Automation ID: {element.automation_id}")
-
+            sDrawingAreaSteps = ""
+            if win32gui.GetClassName(target) == "AfxFrameOrView140u" and element.control_type == "Pane":
+                sDrawingAreaSteps = self.getStatusBarText()
+                return {
+                    "elementName": "Drawing Area",
+                    "drawingAreaSteps": sDrawingAreaSteps
+                }
             return {
                 "title": win32gui.GetWindowText(target),
                 "className": win32gui.GetClassName(target),
@@ -53,10 +108,11 @@ class ScreenshotLogic:
         except Exception as e:
             print(f"⚠️ pywinauto failed: {e}")
             return {
-                "title": win32gui.GetWindowText(target),
-                "className": win32gui.GetClassName(target),
+                "title": "",
+                "className": "",
                 "elementError": str(e)
             }
+
 
     def saveScreenshotWithMarker(self, tRect, iX, iY, sPrefix):
         tRelClick = self._getRelativeClickPosition(tRect, iX, iY)
@@ -100,3 +156,177 @@ class ScreenshotLogic:
         sTimestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         sFileName = f"{sPrefix}_{sTimestamp}.png"
         return os.path.join(self.sSaveDir, sFileName)
+
+
+    def get_all_windows_of_process(self, process_name):
+        import win32gui, win32process, psutil
+        pid = None
+        for proc in psutil.process_iter(['pid', 'name']):
+            if proc.info['name'].lower() == process_name.lower():
+                pid = proc.info['pid']
+                break
+        if pid is None:
+            return []
+        result = []
+        def enumHandler(hwnd, lParam):
+            try:
+                _, win_pid = win32process.GetWindowThreadProcessId(hwnd)
+                if win_pid == pid and win32gui.IsWindowVisible(hwnd):
+                    result.append(hwnd)
+            except Exception:
+                pass
+        win32gui.EnumWindows(enumHandler, None)
+        return result
+
+
+    def saveFullScreenScreenshot(self, sPrefix="FullScreen"):
+        sTimestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        sFileName = f"{sPrefix}_{sTimestamp}.png"
+        sPath = os.path.join(self.sSaveDir, sFileName)
+        with mss.mss() as sct:
+            monitor = sct.monitors[0]  # 0 = cały pulpit, 1 = pierwszy monitor itd.
+            sct_img = sct.grab(monitor)
+            img = Image.frombytes("RGB", sct_img.size, sct_img.rgb)
+            img.save(sPath)
+        print(f"[✔] Full screen screenshot saved: {sPath}")
+        return sPath
+
+
+    def isWindowVisible(self, hwnd):
+        import win32gui
+        return win32gui.IsWindow(hwnd) and win32gui.IsWindowVisible(hwnd)
+
+    def getWindowInfo(self, hwnd):
+        import win32gui
+        info = {}
+        try:
+            info["hwnd"] = hwnd
+            info["className"] = win32gui.GetClassName(hwnd)
+            info["title"] = win32gui.GetWindowText(hwnd)
+        except Exception as e:
+            info["error"] = str(e)
+        return info
+
+    def saveWindowScreenshot(self, hwnd, sPrefix="Popup"):
+        try:
+            import win32gui, mss, os
+            from PIL import Image
+            tRect = win32gui.GetWindowRect(hwnd)
+            iLeft, iTop, iRight, iBottom = tRect
+            width = iRight - iLeft
+            height = iBottom - iTop
+            if width <= 0 or height <= 0:
+                print(f"⚠️ Okno o hwnd={hwnd} ma nieprawidłowe wymiary.")
+                return None
+
+            with mss.mss() as sct:
+                monitor = {"left": iLeft, "top": iTop, "width": width, "height": height}
+                sct_img = sct.grab(monitor)
+                iImage = Image.frombytes("RGB", sct_img.size, sct_img.rgb)
+                sPath = self._buildScreenshotPath(sPrefix)
+                iImage.save(sPath)
+                print(f"[✔] Zrzut popup-menu zapisany: {sPath}")
+                return sPath
+        except Exception as e:
+            print(f"❌ Błąd podczas zapisu zrzutu popup: {e}")
+            return None
+
+    def saveFullScreenScreenshot(self, sPrefix="FullScreen"):
+        import os
+        import mss
+        from PIL import Image
+        from datetime import datetime
+        import win32api
+
+        sTimestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        sFileName = f"{sPrefix}_{sTimestamp}.png"
+        sPath = os.path.join(self.sSaveDir, sFileName)
+
+        # Pobierz pozycję myszki
+        mouse_x, mouse_y = win32api.GetCursorPos()
+
+        with mss.mss() as sct:
+            found_monitor = None
+            # sct.monitors[1:] - pomija 'cały pulpit' na pozycji 0
+            for monitor in sct.monitors[1:]:
+                if (monitor["left"] <= mouse_x < monitor["left"] + monitor["width"] and
+                    monitor["top"] <= mouse_y < monitor["top"] + monitor["height"]):
+                    found_monitor = monitor
+                    break
+
+            if found_monitor is None:
+                # Fallback: cały pulpit
+                found_monitor = sct.monitors[0]
+
+            sct_img = sct.grab(found_monitor)
+            img = Image.frombytes("RGB", sct_img.size, sct_img.rgb)
+            img.save(sPath)
+        print(f"[✔] Full screen screenshot saved: {sPath}")
+        return sPath
+
+
+    def get_all_windows_of_process(self, process_name):
+        import win32gui, win32process, psutil
+        pid = None
+        for proc in psutil.process_iter(['pid', 'name']):
+            if proc.info['name'].lower() == process_name.lower():
+                pid = proc.info['pid']
+                break
+        if pid is None:
+            return []
+        result = []
+        def enumHandler(hwnd, lParam):
+            try:
+                _, win_pid = win32process.GetWindowThreadProcessId(hwnd)
+                if win_pid == pid and win32gui.IsWindowVisible(hwnd):
+                    result.append(hwnd)
+            except Exception:
+                pass
+        win32gui.EnumWindows(enumHandler, None)
+        return result
+
+
+    def getStatusBarText(self):
+        from pywinauto import Application
+        import re
+
+        try:
+            app = Application(backend="win32").connect(path="SEE.exe")
+            main = None
+            for win in app.windows():
+                if "SEE Electrical Expert" in win.window_text():
+                    main = win
+                    break
+            if not main:
+                print("Nie znaleziono głównego okna")
+                return ""
+
+            # Przeszukaj dzieci po class_name
+            statusbar = None
+            for child in main.children():
+                if child.friendly_class_name() == "StatusBar" or child.class_name() == "msctls_statusbar32":
+                    statusbar = child
+                    break
+            if not statusbar:
+                print("Nie znaleziono statusbara")
+                return ""
+
+            parts = statusbar.texts()
+            print(f"StatusBar (pywinauto): {parts}")
+
+            # Wyciągnij liczby przed "step"
+            steps = []
+            for part in parts:
+                match = re.match(r'([0-9]+\.[0-9]+)\s*step', part)
+                if match:
+                    steps.append(match.group(1))
+            if steps:
+                return f"[{', '.join(steps)}]"
+            else:
+                return ""
+
+        except Exception as e:
+            print(f"pywinauto statusbar error: {e}")
+            return ""
+
+

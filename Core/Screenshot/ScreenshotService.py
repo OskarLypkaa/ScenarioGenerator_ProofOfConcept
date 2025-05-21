@@ -41,24 +41,61 @@ class ScreenshotService:
             dInfoBefore = self.logic.getSimplifiedWindowInfo(self.bCaptureFullWindow)
             dInfoBefore["type of action"] = "Click"
 
-            # Pozwól systemowi przetworzyć kliknięcie
-            time.sleep(0.3)  # Możesz dostosować to opóźnienie
+            before_windows = set(self.logic.get_all_windows_of_process("SEE.exe"))
+            print(dInfoBefore.get("Action Info before", {}).get("elementName", ""))
+            if dInfoBefore.get("elementName", "").startswith("Open") and not dInfoBefore.get("elementControlType", "").startswith("MenuItem"):
+                time.sleep(5.0)
+            else:
+                time.sleep(1.0)
 
-            # --- AFTER ---
-            tRect, _ = self.logic.getWindowUnderMouse(self.bCaptureFullWindow)
-            sAfter = self.logic.saveScreenshotWithMarker(tRect, iMouseX, iMouseY, "After")
-            dInfoAfter = self.logic.getSimplifiedWindowInfo(self.bCaptureFullWindow)
-            dInfoAfter["type of action"] = "Screenshot after click"
 
-            # Zapisz krok
-            self.recorder.addStep(
-                dActionInfoBefore=dInfoBefore,
-                sTakenActionPic=sBefore,
-                sExpectedResultPic=sAfter,
-                dActionInfoAfter=dInfoAfter
-            )
 
-            print(f"[✔] Captured BEFORE and AFTER for click at ({iMouseX}, {iMouseY})")
+
+            after_windows = set(self.logic.get_all_windows_of_process("SEE.exe"))
+
+            new_windows = list(after_windows - before_windows)
+            closed_windows = list(before_windows - after_windows)
+
+            if not new_windows and not closed_windows:
+                tRect, _ = self.logic.getWindowUnderMouse(self.bCaptureFullWindow)
+                sAfter = self.logic.saveScreenshotWithMarker(tRect, iMouseX, iMouseY, "After")
+                dInfoAfter = self.logic.getSimplifiedWindowInfo(self.bCaptureFullWindow)
+                dInfoAfter["type of action"] = "Element is clicked"
+                self.recorder.addStep(
+                    dActionInfoBefore=dInfoBefore,
+                    sTakenActionPic=sBefore,
+                    dActionInfoAfter=dInfoAfter,
+                    sExpectedResultPic=sAfter
+                )
+                print(f"[✔] Captured BEFORE and AFTER for click at ({iMouseX}, {iMouseY})")
+            
+            if new_windows:
+                if self.logic.isWindowVisible(new_windows[0]):
+                    sWindow = self.logic.saveWindowScreenshot(new_windows[0], sPrefix="NewWindow")
+                    dInfo = self.logic.getWindowInfo(new_windows[0])
+                    dInfo["type of action"] = "New window is displayed"
+                    self.recorder.addStep(
+                        dActionInfoBefore=dInfoBefore,
+                        sTakenActionPic=sBefore,
+                        dActionInfoAfter=dInfo,
+                        sExpectedResultPic=sWindow
+                    )
+                    print(f"[✔] Screenshot saved for NEW window: hwnd={new_windows[0]}")
+            elif closed_windows:
+                sScreen = self.logic.saveFullScreenScreenshot(sPrefix="ClosedWindow")
+                dInfo = {
+                    "type of action": "Window is closed",
+                    "closed_hwnd": closed_windows[0]
+                }
+                self.recorder.addStep(
+                    dActionInfoBefore=dInfoBefore,
+                    sTakenActionPic=sBefore,
+                    dActionInfoAfter=dInfo,
+                    sExpectedResultPic=sScreen
+                )
+                print(f"[✔] Screenshot saved for CLOSED window: hwnd={closed_windows[0]}")
+
+            
 
         return user32.CallNextHookEx(
             None,
@@ -66,6 +103,7 @@ class ScreenshotService:
             ctypes.wintypes.WPARAM(wParam),
             ctypes.wintypes.LPARAM(lParam)
         )
+
 
     def _installHook(self):
         CMPFUNC = ctypes.WINFUNCTYPE(

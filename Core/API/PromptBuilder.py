@@ -14,6 +14,7 @@ ElementName: {dBefore.get('elementName')}
 ControlType: {dBefore.get('elementControlType')}
 AutomationId: {dBefore.get('elementAutomationId')}
 Type of Action: {dBefore.get('type of action')}
+drawingAreaSteps: {dBefore.get('drawingAreaSteps')}
 
 [AFTER]
 Title: {dAfter.get('title')}
@@ -22,6 +23,7 @@ ElementName: {dAfter.get('elementName')}
 ControlType: {dAfter.get('elementControlType')}
 AutomationId: {dAfter.get('elementAutomationId')}
 Type of Action: {dAfter.get('type of action')}
+drawingAreaSteps: {dAfter.get('drawingAreaSteps')}
         """.strip()
 
-        return f"{sBase}\n\n{sMeta}\n\nReturn only the improved 'Taken Action' and 'Expected Result'."
+        return f"{sBase}\n\n{sMeta}\n\nReturn only the improved 'Taken Action' and 'Expected Result'. If drawingAreaSteps has value, please use it in the generated strings."

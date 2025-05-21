@@ -51,13 +51,18 @@ class DescriptionService:
 
     def _describeExpectedResult(self, dStep: dict) -> str:
         dAfter = dStep.get("Action Info After", {})
+        
         if not dAfter:
             return self._fallbackExpectedResult(dStep)
-
+        sActionType = dAfter.get("type of action", "")
+        if sActionType:
+            return sActionType
         sClass = self._getClassName(dAfter.get("elementClassName", ""))
         sElement = dAfter.get("elementName") or ""
         sCtrlType = dAfter.get("elementControlType", "")
         sOCR = dAfter.get("ocrText", "").replace("\n", " ").strip()
+
+
 
         parts = []
         if sCtrlType:

@@ -26,10 +26,10 @@ class ScenarioRecorder:
    def addStep(
       self,
       dActionInfoBefore: dict,
-      sTakenAction: str = "",
+      sTakenAction: Optional[str] = "",
       sTakenActionPic: Optional[str] = None,
       dActionInfoAfter: Optional[dict] = None,
-      sExpectedResult: str = "",
+      sExpectedResult: Optional[str] = "",
       sExpectedResultPic: Optional[str] = None
    ):
       iStep = self._getNextStepNumber()
@@ -77,3 +77,5 @@ class ScenarioRecorder:
    def clearAll(self):
       self.aSteps = []
       self._save()
+
+
