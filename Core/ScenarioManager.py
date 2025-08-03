@@ -63,7 +63,7 @@ class ScenarioManager:
 
             try:
                 sResponse = self.oOpenAIClient.sendStepToAI(sPrompt, lImages)
-                # Parsuj odpowiedź i nadpisz pola – uproszczenie: linia 1 i 2
+                
                 lLines = [l.strip() for l in sResponse.strip().splitlines() if l.strip()]
                 if len(lLines) >= 2:
                     dStep["Taken Action"] = lLines[0]

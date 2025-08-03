@@ -15,7 +15,7 @@ class ExcelGenerator:
         self.steps = []
         self.wb = None
         self.ws: Worksheet = None
-        self.startRow = 4  # Wiersz szablonu (Excel: 1-indeksowany)
+        self.startRow = 4  
         self.subStepCounter = 1
         self.currentRow = self.startRow
 
@@ -60,7 +60,7 @@ class ExcelGenerator:
         srcRow = self.startRow
         destRow = self.currentRow
 
-        # Skopiuj styl z komórek szablonu (kolumny A–E)
+        
         for col in range(1, 6):
             srcCell = self.ws.cell(row=srcRow, column=col)
             dstCell = self.ws.cell(row=destRow, column=col)
@@ -71,15 +71,15 @@ class ExcelGenerator:
             dstCell.alignment = copy(srcCell.alignment)
             dstCell.number_format = srcCell.number_format
 
-        # Skopiuj wysokość wiersza
+        
         self.ws.row_dimensions[destRow].height = self.ws.row_dimensions[srcRow].height
 
-        # Wstaw dane tekstowe
+       
         self.ws.cell(row=destRow, column=1).value = f"1.{self.subStepCounter}"  # A
         self.ws.cell(row=destRow, column=2).value = step.get("Taken Action", "")  # B
         self.ws.cell(row=destRow, column=4).value = step.get("Expected Result", "")  # D
 
-        # Wstaw obrazy bez skalowania
+        
         self._insertImage(step.get("Taken Action Picture"), f"C{destRow}")  # C
         self._insertImage(step.get("Expected Result Picture"), f"E{destRow}")  # E
 
