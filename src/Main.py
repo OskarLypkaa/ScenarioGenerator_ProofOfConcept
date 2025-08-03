@@ -1,6 +1,9 @@
 from Core.ScenarioManager import ScenarioManager
+from utilities.logger import log
+
 
 def main():
+    log.info("Application started")
     mManager = ScenarioManager()
 
     sFileName = input("📝 Enter name for new scenario file (e.g. `test_scenario.json`): ").strip()
@@ -9,11 +12,11 @@ def main():
 
     mManager.startRecordingScenario(sFileName)
 
-    print("▶ Recording started. Press Enter to stop.")
+    log.info("Recording started. Press Enter to stop.")
     input()
 
     mManager.stopRecordingScenario()
-    print("⏹ Recording stopped.")
+    log.info("Recording stopped.")
 
     bGenerate = input("🔍 Generate basic descriptions now? (y/n): ").strip().lower()
     if bGenerate == "y":
@@ -27,5 +30,9 @@ def main():
     if bExport == "y":
         mManager.exportToExcel(sFileName)
 
+    log.info("Application finished")
+
+
 if __name__ == "__main__":
     main()
+

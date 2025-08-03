@@ -1,4 +1,5 @@
 from Core.ScenarioRecorder import ScenarioRecorder
+from utilities.logger import log
 
 class DescriptionService:
     def __init__(self, recorder: ScenarioRecorder):
@@ -10,6 +11,7 @@ class DescriptionService:
 
     def generateDescriptions(self):
         steps = self.recorder.getSteps()
+        log.info(f"Generating descriptions for {len(steps)} steps")
 
         for step in steps:
             iStepNumber = step["Step Number"]
@@ -21,6 +23,7 @@ class DescriptionService:
                 sTakenAction=takenAction,
                 sExpectedResult=expectedResult
             )
+            log.debug(f"Descriptions generated for step {iStepNumber}")
 
     def _getClassName(self, sRawClassName: str) -> str:
         return self.dClassNameMap.get(sRawClassName, sRawClassName)
@@ -87,4 +90,5 @@ class DescriptionService:
         if "Click" in sAction:
             return "Expected reaction of the clicked element."
 
+        log.debug("Falling back to generic expected result")
         return "Expected result after the action is completed."

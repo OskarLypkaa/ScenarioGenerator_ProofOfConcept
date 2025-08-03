@@ -1,3 +1,6 @@
+from utilities.logger import log
+
+
 class PromptBuilder:
     @staticmethod
     def buildPromptFromStep(dStep: dict) -> str:
@@ -26,4 +29,6 @@ Type of Action: {dAfter.get('type of action')}
 drawingAreaSteps: {dAfter.get('drawingAreaSteps')}
         """.strip()
 
-        return f"{sBase}\n\n{sMeta}\n\nReturn only the improved 'Taken Action' and 'Expected Result'. If drawingAreaSteps has value, please use it in the generated strings."
+        prompt = f"{sBase}\n\n{sMeta}\n\nReturn only the improved 'Taken Action' and 'Expected Result'. If drawingAreaSteps has value, please use it in the generated strings."
+        log.debug(f"Prompt built for step {dStep.get('Step Number')}")
+        return prompt

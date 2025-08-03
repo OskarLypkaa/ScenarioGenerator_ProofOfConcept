@@ -5,6 +5,7 @@ import time
 from Core.Screenshot.ScreenshotLogic import ScreenshotLogic
 from Core.ScenarioRecorder import ScenarioRecorder
 import Utils.Config
+from utilities.logger import log
 
 user32 = ctypes.windll.user32
 
@@ -42,7 +43,7 @@ class ScreenshotService:
             dInfoBefore["type of action"] = "Click"
 
             before_windows = set(self.logic.get_all_windows_of_process("SEE.exe"))
-            print(dInfoBefore.get("Action Info before", {}).get("elementName", ""))
+            log.debug(dInfoBefore.get("Action Info before", {}).get("elementName", ""))
             if dInfoBefore.get("elementName", "").startswith("Open") and not dInfoBefore.get("elementControlType", "").startswith("MenuItem"):
                 time.sleep(5.0)
             else:
@@ -67,8 +68,8 @@ class ScreenshotService:
                     dActionInfoAfter=dInfoAfter,
                     sExpectedResultPic=sAfter
                 )
-                print(f"[✔] Captured BEFORE and AFTER for click at ({iMouseX}, {iMouseY})")
-            
+                log.info(f"Captured BEFORE and AFTER for click at ({iMouseX}, {iMouseY})")
+
             if new_windows:
                 if self.logic.isWindowVisible(new_windows[0]):
                     sWindow = self.logic.saveWindowScreenshot(new_windows[0], sPrefix="NewWindow")
@@ -80,7 +81,7 @@ class ScreenshotService:
                         dActionInfoAfter=dInfo,
                         sExpectedResultPic=sWindow
                     )
-                    print(f"[✔] Screenshot saved for NEW window: hwnd={new_windows[0]}")
+                    log.info(f"Screenshot saved for NEW window: hwnd={new_windows[0]}")
             elif closed_windows:
                 sScreen = self.logic.saveFullScreenScreenshot(sPrefix="ClosedWindow")
                 dInfo = {
@@ -93,7 +94,7 @@ class ScreenshotService:
                     dActionInfoAfter=dInfo,
                     sExpectedResultPic=sScreen
                 )
-                print(f"[✔] Screenshot saved for CLOSED window: hwnd={closed_windows[0]}")
+                log.info(f"Screenshot saved for CLOSED window: hwnd={closed_windows[0]}")
 
             
 
@@ -113,18 +114,19 @@ class ScreenshotService:
         self.hookId = user32.SetWindowsHookExW(WH_MOUSE_LL, self.mouseProcPtr, 0, 0)
 
         if not self.hookId:
-            raise Exception("❌ Failed to install mouse hook.")
+            log.error("Failed to install mouse hook.")
+            raise Exception("Failed to install mouse hook.")
 
         msg = ctypes.wintypes.MSG()
         while True:
             user32.GetMessageW(ctypes.byref(msg), 0, 0, 0)
 
     def startListener(self):
-        print("▶ Listening for mouse clicks (Windows Hook)...")
+        log.info("Listening for mouse clicks (Windows Hook)...")
         self.hookThread = threading.Thread(target=self._installHook, daemon=True)
         self.hookThread.start()
 
     def stopListener(self):
         if self.hookId:
             user32.UnhookWindowsHookEx(self.hookId)
-            print("⏹ Mouse hook removed.")
+            log.info("Mouse hook removed.")
