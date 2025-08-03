@@ -6,6 +6,7 @@ from openpyxl import load_workbook
 from openpyxl.drawing.image import Image as ExcelImage
 from openpyxl.worksheet.worksheet import Worksheet
 from PIL import Image as PILImage
+from utilities.logger import log
 
 class ExcelGenerator:
     def __init__(self, jsonPath: str, templatePath: str, outputPath: str):
@@ -42,9 +43,10 @@ class ExcelGenerator:
     def _copyTemplate(self):
         try:
             shutil.copyfile(self.templatePath, self.outputPath)
-            print(f"📄 Template copied to: {self.outputPath}")
+            log.info(f"Template copied to: {self.outputPath}")
         except Exception as e:
-            raise RuntimeError(f"❌ Failed to copy template: {e}")
+            log.error(f"Failed to copy template: {e}")
+            raise RuntimeError(f"Failed to copy template: {e}")
 
     def _loadTemplate(self):
         self.wb = load_workbook(self.outputPath, keep_vba=True)  # ← KLUCZOWE
@@ -85,13 +87,14 @@ class ExcelGenerator:
 
     def _insertImage(self, imagePath: str, cellRef: str):
         if not imagePath or not os.path.exists(imagePath):
+            log.warning(f"Image not found: {imagePath}")
             return
         try:
             excelImage = ExcelImage(imagePath)
             self.ws.add_image(excelImage, cellRef)
         except Exception as e:
-            print(f"⚠️ Failed to insert image: {imagePath} ({e})")
+            log.warning(f"Failed to insert image: {imagePath} ({e})")
 
     def _saveWorkbook(self):
         self.wb.save(self.outputPath)
-        print(f"✅ Excel macro-enabled file generated: {self.outputPath}")
+        log.info(f"Excel macro-enabled file generated: {self.outputPath}")

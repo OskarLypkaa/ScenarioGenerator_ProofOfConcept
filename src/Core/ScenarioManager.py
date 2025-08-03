@@ -6,6 +6,7 @@ from Core.ScenarioRecorder import ScenarioRecorder
 from Core.Excel.ExcelGenerator import ExcelGenerator
 from Core.API.OpenAIClient import OpenAIClient
 from Core.API.PromptBuilder import PromptBuilder
+from utilities.logger import log
 import Utils.Config
 
 class ScenarioManager:
@@ -17,38 +18,39 @@ class ScenarioManager:
 
     def startRecordingScenario(self, sFileName: str):
         sFullPath = os.path.join(Utils.Config.SCENARIO_DIR, sFileName)
+        log.debug(f"Scenario file path resolved to {sFullPath}")
 
         if os.path.exists(sFullPath):
-            print(f"⚠ File already exists: {sFullPath}")
-            print("❌ Recording aborted to avoid overwriting existing scenario.")
+            log.warning(f"File already exists: {sFullPath}")
+            log.warning("Recording aborted to avoid overwriting existing scenario.")
             return
 
         self.oRecorder = ScenarioRecorder(sPath=sFullPath)
         self.oScreenshotService = ScreenshotService()
         self.oScreenshotService.recorder = self.oRecorder
         self.oScreenshotService.startListener()
-        print(f"▶ Started recording scenario to: {sFullPath}")
+        log.info(f"Started recording scenario to: {sFullPath}")
 
     def stopRecordingScenario(self):
         if self.oScreenshotService:
             self.oScreenshotService.stopListener()
-            print("⏹ Scenario recording stopped.")
+            log.info("Scenario recording stopped.")
 
     def updateDecriptions(self, sFileName: str):
         sFullPath = os.path.join(Utils.Config.SCENARIO_DIR, sFileName)
         if not os.path.exists(sFullPath):
-            print(f"❌ Scenario file does not exist: {sFullPath}")
+            log.error(f"Scenario file does not exist: {sFullPath}")
             return
 
         self.oRecorder = ScenarioRecorder(sPath=sFullPath)
         self.oDescriptionService = DescriptionService(self.oRecorder)
         self.oDescriptionService.generateDescriptions()
-        print(f"✅ Descriptions generated for: {sFullPath}")
+        log.info(f"Descriptions generated for: {sFullPath}")
 
     def enhanceDescriptionsWithAI(self, sFileName: str):
         sFullPath = os.path.join(Utils.Config.SCENARIO_DIR, sFileName)
         if not os.path.exists(sFullPath):
-            print(f"❌ Scenario file does not exist: {sFullPath}")
+            log.error(f"Scenario file does not exist: {sFullPath}")
             return
 
         with open(sFullPath, "r", encoding="utf-8") as f:
@@ -63,26 +65,26 @@ class ScenarioManager:
 
             try:
                 sResponse = self.oOpenAIClient.sendStepToAI(sPrompt, lImages)
-                
+
                 lLines = [l.strip() for l in sResponse.strip().splitlines() if l.strip()]
                 if len(lLines) >= 2:
                     dStep["Taken Action"] = lLines[0]
                     dStep["Expected Result"] = lLines[1]
-                    print(f"✅ Step {dStep['Step Number']} updated.")
+                    log.info(f"Step {dStep['Step Number']} updated via AI.")
                 else:
-                    print(f"⚠ Step {dStep['Step Number']} – AI response not usable.")
+                    log.warning(f"Step {dStep['Step Number']} – AI response not usable.")
 
             except Exception as e:
-                print(f"❌ Step {dStep['Step Number']} – AI request failed: {e}")
+                log.error(f"Step {dStep['Step Number']} – AI request failed: {e}")
 
         with open(sFullPath, "w", encoding="utf-8") as f:
             json.dump(lSteps, f, indent=4, ensure_ascii=False)
-            print(f"💾 Updated scenario saved to: {sFullPath}")
+            log.info(f"Updated scenario saved to: {sFullPath}")
 
     def exportToExcel(self, sFileName: str, sExcelName: str = None):
         sJsonPath = os.path.join(Utils.Config.SCENARIO_DIR, sFileName)
         if not os.path.exists(sJsonPath):
-            print(f"❌ Scenario file does not exist: {sJsonPath}")
+            log.error(f"Scenario file does not exist: {sJsonPath}")
             return
 
         if sExcelName is None:
@@ -98,6 +100,6 @@ class ScenarioManager:
                 outputPath=sExcelPath
             )
             gen.generate()
-            print(f"✅ Excel exported to: {sExcelPath}")
+            log.info(f"Excel exported to: {sExcelPath}")
         except Exception as e:
-            print(f"❌ Excel export failed: {e}")
+            log.error(f"Excel export failed: {e}")

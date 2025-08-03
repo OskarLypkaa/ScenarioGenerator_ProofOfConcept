@@ -1,24 +1,29 @@
 import json
 import os
 from typing import Optional
+from utilities.logger import log
 
 class ScenarioRecorder:
    def __init__(self, sPath: Optional[str] = None):
-      self.aSteps = [] 
+      self.aSteps = []
       if sPath:
          self.sPath = sPath
          if os.path.exists(sPath):
+            log.debug(f"Loading existing scenario from {sPath}")
             self._load()
          else:
+            log.debug(f"Creating new scenario file at {sPath}")
             self._save()
 
    def _load(self):
       with open(self.sPath, "r", encoding="utf-8") as f:
          self.aSteps = json.load(f)
+      log.info(f"Loaded {len(self.aSteps)} steps from {self.sPath}")
 
    def _save(self):
       with open(self.sPath, "w", encoding="utf-8") as f:
          json.dump(self.aSteps, f, indent=4, ensure_ascii=False)
+      log.debug(f"Scenario saved to {self.sPath}")
 
    def _getNextStepNumber(self) -> int:
       return len(self.aSteps) + 1
@@ -45,6 +50,7 @@ class ScenarioRecorder:
       }
 
       self.aSteps.append(dStep)
+      log.info(f"Added step {iStep}")
       self._save()
 
    def updateStep(
@@ -68,6 +74,7 @@ class ScenarioRecorder:
                dStep["Expected Result Picture"] = sExpectedResultPic
             if dActionInfoAfter is not None:
                dStep["Action Info After"] = dActionInfoAfter
+            log.debug(f"Updated step {iStepNumber}")
             break
       self._save()
 
@@ -76,6 +83,7 @@ class ScenarioRecorder:
 
    def clearAll(self):
       self.aSteps = []
+      log.warning("All steps cleared from recorder")
       self._save()
 
 

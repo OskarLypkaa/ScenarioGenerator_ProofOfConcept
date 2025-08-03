@@ -8,6 +8,7 @@ from pywinauto.uia_element_info import UIAElementInfo
 import psutil
 import win32gui
 import win32process
+from utilities.logger import log
 
 class ScreenshotLogic:
     def __init__(self, sSaveDir):
@@ -24,7 +25,7 @@ class ScreenshotLogic:
         popups = []
         pid = self.get_process_pid(process_name)
         if pid is None:
-            print(f"Process '{process_name}' not found")
+            log.warning(f"Process '{process_name}' not found")
             return []
         
         def enumHandler(hwnd, lParam):
@@ -45,7 +46,7 @@ class ScreenshotLogic:
             width = iRight - iLeft
             height = iBottom - iTop
             if width <= 0 or height <= 0:
-                print(f"⚠️ Okno o hwnd={hwnd} ma nieprawidłowe wymiary.")
+                log.warning(f"Window hwnd={hwnd} has invalid dimensions")
                 return None
 
             with mss.mss() as sct:
@@ -54,10 +55,10 @@ class ScreenshotLogic:
                 iImage = Image.frombytes("RGB", sct_img.size, sct_img.rgb)
                 sPath = self._buildScreenshotPath(sPrefix)
                 iImage.save(sPath)
-                print(f"[✔] Zrzut popup-menu zapisany: {sPath}")
+                log.info(f"Popup screenshot saved: {sPath}")
                 return sPath
         except Exception as e:
-            print(f"❌ Błąd podczas zapisu zrzutu popup: {e}")
+            log.error(f"Failed to save popup screenshot: {e}")
             return None
 
     def getWindowUnderMouse(self, bCaptureFullWindow):
@@ -105,7 +106,7 @@ class ScreenshotLogic:
             }
 
         except Exception as e:
-            print(f"⚠️ pywinauto failed: {e}")
+            log.warning(f"pywinauto failed: {e}")
             return {
                 "title": "",
                 "className": "",
@@ -119,7 +120,7 @@ class ScreenshotLogic:
         self._drawClickMarker(iImage, tRelClick)
         sPath = self._buildScreenshotPath(sPrefix)
         iImage.save(sPath)
-        print(f"[✔] Screenshot saved: {sPath}")
+        log.info(f"Screenshot saved: {sPath}")
         return sPath
 
     def _getRelativeClickPosition(self, tRect, iClickX, iClickY):
@@ -187,7 +188,7 @@ class ScreenshotLogic:
             sct_img = sct.grab(monitor)
             img = Image.frombytes("RGB", sct_img.size, sct_img.rgb)
             img.save(sPath)
-        print(f"[✔] Full screen screenshot saved: {sPath}")
+        log.info(f"Full screen screenshot saved: {sPath}")
         return sPath
 
 
@@ -215,7 +216,7 @@ class ScreenshotLogic:
             width = iRight - iLeft
             height = iBottom - iTop
             if width <= 0 or height <= 0:
-                print(f"⚠️ Okno o hwnd={hwnd} ma nieprawidłowe wymiary.")
+                log.warning(f"Window hwnd={hwnd} has invalid dimensions")
                 return None
 
             with mss.mss() as sct:
@@ -224,10 +225,10 @@ class ScreenshotLogic:
                 iImage = Image.frombytes("RGB", sct_img.size, sct_img.rgb)
                 sPath = self._buildScreenshotPath(sPrefix)
                 iImage.save(sPath)
-                print(f"[✔] Zrzut popup-menu zapisany: {sPath}")
+                log.info(f"Popup screenshot saved: {sPath}")
                 return sPath
         except Exception as e:
-            print(f"❌ Błąd podczas zapisu zrzutu popup: {e}")
+            log.error(f"Failed to save popup screenshot: {e}")
             return None
 
     def saveFullScreenScreenshot(self, sPrefix="FullScreen"):
@@ -260,7 +261,7 @@ class ScreenshotLogic:
             sct_img = sct.grab(found_monitor)
             img = Image.frombytes("RGB", sct_img.size, sct_img.rgb)
             img.save(sPath)
-        print(f"[✔] Full screen screenshot saved: {sPath}")
+        log.info(f"Full screen screenshot saved: {sPath}")
         return sPath
 
 
@@ -297,7 +298,7 @@ class ScreenshotLogic:
                     main = win
                     break
             if not main:
-                print("Nie znaleziono głównego okna")
+                log.warning("Main window not found")
                 return ""
     
             statusbar = None
@@ -306,11 +307,11 @@ class ScreenshotLogic:
                     statusbar = child
                     break
             if not statusbar:
-                print("Nie znaleziono statusbara")
+                log.warning("Status bar not found")
                 return ""
 
             parts = statusbar.texts()
-            print(f"StatusBar (pywinauto): {parts}")
+            log.debug(f"StatusBar (pywinauto): {parts}")
 
             steps = []
             for part in parts:
@@ -323,7 +324,7 @@ class ScreenshotLogic:
                 return ""
 
         except Exception as e:
-            print(f"pywinauto statusbar error: {e}")
+            log.error(f"pywinauto statusbar error: {e}")
             return ""
 
 
