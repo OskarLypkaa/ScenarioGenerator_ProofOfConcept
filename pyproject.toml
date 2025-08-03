@@ -1,0 +1,23 @@
+[project]
+name = "manualscenariogenerator"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Oskar Łypka",email = "oskar.lypka@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "loguru (>=0.7.3,<0.8.0)",
+    "mss (>=10.0.0,<11.0.0)",
+    "openai (>=1.98.0,<2.0.0)",
+    "openpyxl (>=3.1.5,<4.0.0)",
+    "psutil (>=7.0.0,<8.0.0)",
+    "pywinauto (>=0.6.9,<0.7.0)",
+    "pywin32 (>=311,<312)",
+    "pillow (>=11.3.0,<12.0.0)"
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
